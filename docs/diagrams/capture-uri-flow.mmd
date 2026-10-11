@@ -1,0 +1,66 @@
+%% capture_uri：URI 注册与单帧 JPEG 抓拍流程
+%%{init: {
+  "theme": "base",
+  "flowchart": { "curve": "linear", "nodeSpacing": 26, "rankSpacing": 32 },
+  "themeVariables": {
+    "fontFamily": "Microsoft YaHei, Noto Sans SC, sans-serif",
+    "fontSize": "20px",
+    "lineColor": "#334155",
+    "primaryTextColor": "#172033"
+  }
+}}%%
+flowchart LR
+  subgraph BOOT["ESP32-S3 · 启动与注册"]
+    direction TB
+    B0(["startCameraServer()"])
+    B1{"httpd_start()\n成功？"}
+    B2["注册 capture_uri\n/capture · GET · capture_handler"]
+    BF(["未注册 /capture"])
+    B0 --> B1
+    B1 -- "是" --> B2
+    B1 -- "否" --> BF
+  end
+
+  subgraph PHONE["个人设备端"]
+    U["点击抓拍 / 请求图片"]
+    IMG(["浏览器显示 capture.jpg"])
+    U ~~~ IMG
+  end
+
+  subgraph ESP["ESP32-S3 · capture_handler"]
+    direction TB
+    LED{"定义了补光灯引脚？"}
+    FLASH["开灯 → 等待约 150 ms\n抓帧 → 关灯"]
+    DIRECT["直接抓取一帧"]
+    FB{"取得 framebuffer？"}
+    HEAD["设置 image/jpeg\n文件名 / CORS / 时间戳"]
+    JPEG{"帧已经是 JPEG？"}
+    SEND["一次性发送 fb->buf"]
+    CONVERT["frame2jpg_cb()\n质量 80，分块编码发送"]
+    ENDCHUNK["发送空块结束响应"]
+    RETURN["esp_camera_fb_return(fb)\n记录大小与耗时"]
+    FAIL(["记录抓拍失败\nHTTP 500 + ESP_FAIL"])
+
+    LED -- "是" --> FLASH --> FB
+    LED -- "否" --> DIRECT --> FB
+    FB -- "否" --> FAIL
+    FB -- "是" --> HEAD --> JPEG
+    JPEG -- "是" --> SEND --> RETURN
+    JPEG -- "否" --> CONVERT --> ENDCHUNK --> RETURN
+  end
+
+  B2 -. "路由准备完成" .-> U
+  U == "Wi-Fi · GET /capture" ==> LED
+  RETURN == "HTTP JPEG 响应" ==> IMG
+
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class U,IMG device;
+  class B0,B1,B2,LED,FLASH,DIRECT,FB,HEAD,JPEG,SEND,CONVERT,ENDCHUNK,RETURN esp;
+  class BF,FAIL error;
+
+  style PHONE fill:#FEF3C799,stroke:#D97706,stroke-width:2px,color:#7C2D12
+  style BOOT fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+  style ESP fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+

@@ -1,0 +1,77 @@
+%% cmd_uri：从 URI 注册到控制命令执行
+%% VS Code 中使用 Mermaid Preview 打开；命令分派按功能分组，避免图无限变长。
+%%{init: {
+  "theme": "base",
+  "flowchart": { "curve": "linear", "nodeSpacing": 25, "rankSpacing": 32 },
+  "themeVariables": {
+    "fontFamily": "Microsoft YaHei, Noto Sans SC, sans-serif",
+    "fontSize": "20px",
+    "lineColor": "#334155",
+    "primaryTextColor": "#172033"
+  }
+}}%%
+flowchart LR
+  subgraph BOOT["ESP32-S3 · 启动与注册"]
+    direction TB
+    B0(["startCameraServer()"])
+    B1{"httpd_start()\n成功？"}
+    B2["注册 cmd_uri\n/control · GET · cmd_handler"]
+    BF(["未注册 /control"])
+    B0 --> B1
+    B1 -- "是" --> B2
+    B1 -- "否" --> BF
+  end
+
+  subgraph PHONE["个人设备端"]
+    UI["网页控件发生变化"]
+    JS["JavaScript 组织 var / val"]
+    RESULT(["界面继续运行或提示错误"])
+    UI --> JS
+  end
+
+  subgraph ESP["ESP32-S3 · cmd_handler"]
+    direction TB
+    H["接收 /control 请求"]
+    Q{"parse_get() 成功？"}
+    KV{"同时存在 var 和 val？"}
+    V["atoi(val)\n取得 sensor_t"]
+    D{"识别 var"}
+    CAM["调用相机 setter\n画质 / 曝光 / 翻转等"]
+    LED["保存 led_duty\n必要时刷新补光灯"]
+    UK["未知命令\nres = -1"]
+    R{"res < 0？"}
+    OK["添加 CORS: *\n返回 HTTP 200"]
+    F0(["ESP_FAIL"])
+    F4(["HTTP 404 + ESP_FAIL"])
+    F5(["HTTP 500"])
+
+    H --> Q
+    Q -- "否" --> F0
+    Q -- "是" --> KV
+    KV -- "否" --> F4
+    KV -- "是" --> V --> D
+    D -- "相机参数" --> CAM --> R
+    D -- "led_intensity" --> LED --> R
+    D -- "未匹配" --> UK --> R
+    R -- "是" --> F5
+    R -- "否" --> OK
+  end
+
+  B2 -. "路由准备完成" .-> UI
+  JS == "Wi-Fi · GET /control?var=…&val=…" ==> H
+  OK == "HTTP 200" ==> RESULT
+  F0 == "连接结束" ==> RESULT
+  F4 == "HTTP 404" ==> RESULT
+  F5 == "HTTP 500" ==> RESULT
+
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class UI,JS,RESULT device;
+  class B0,B1,B2,H,Q,KV,V,D,CAM,LED,R,OK esp;
+  class BF,UK,F0,F4,F5 error;
+
+  style PHONE fill:#FEF3C799,stroke:#D97706,stroke-width:2px,color:#7C2D12
+  style BOOT fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+  style ESP fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+

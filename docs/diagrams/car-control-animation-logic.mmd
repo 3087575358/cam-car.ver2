@@ -1,0 +1,43 @@
+%% 按钮动画采用事件驱动的临时按下态；功能开关另有持久状态
+%%{init:{"theme":"base","flowchart":{"curve":"basis","nodeSpacing":28,"rankSpacing":34},"themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","lineColor":"#334155","primaryTextColor":"#172033"}}}%%
+flowchart TD
+  START(["页面加载"])
+  BIND["animateButton(button)<br/>为所有 button 统一绑定事件"]
+  EVENT{"收到哪类事件？"}
+  PRESS["pointerdown<br/>Space / Enter keydown"]
+  RELEASE["pointerup / cancel / leave<br/>lostpointercapture / keyup / blur"]
+  ADD["添加 .is-pressed"]
+  REMOVE["移除 .is-pressed"]
+  KIND{"按钮风格？"}
+  KEY["WASD<br/>下沉 4 px + 青色边框"]
+  STOP["急停<br/>缩放 + 变亮 + 红色光晕"]
+  FLIP["画面翻转<br/>横移 + 青色渐变"]
+  SPEED["J / K<br/>圆形缩放 + 青色光晕"]
+  MENU["设置按钮<br/>缩放 / 旋转"]
+  FUNCTION["独立执行业务事件<br/>click、keydown 或 pointer 状态"]
+  TOGGLE{"是否为翻转开关？"}
+  ON["同步 hmirror / vflip<br/>切换持久类 .is-on"]
+  TRANSITION["CSS transition<br/>70–100 ms 平滑过渡"]
+  END(["等待下一个事件"])
+
+  START --> BIND --> EVENT
+  EVENT -- "按下" --> PRESS --> ADD --> KIND
+  EVENT -- "松开 / 中断" --> RELEASE --> REMOVE --> TRANSITION
+  KIND -- "机械按键" --> KEY --> TRANSITION
+  KIND -- "安全按钮" --> STOP --> TRANSITION
+  KIND -- "方向按钮" --> FLIP --> TRANSITION
+  KIND -- "速度按钮" --> SPEED --> TRANSITION
+  KIND -- "菜单按钮" --> MENU --> TRANSITION
+  PRESS --> FUNCTION --> TOGGLE
+  TOGGLE -- "是" --> ON --> END
+  TOGGLE -- "否" --> END
+  TRANSITION --> END --> EVENT
+
+  classDef event fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef logic fill:#DBEAFE,stroke:#2563EB,color:#172554,stroke-width:2px;
+  classDef css fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef danger fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class START,EVENT,PRESS,RELEASE,END event;
+  class BIND,ADD,REMOVE,KIND,FUNCTION,TOGGLE,ON logic;
+  class KEY,FLIP,SPEED,MENU,TRANSITION css;
+  class STOP danger;

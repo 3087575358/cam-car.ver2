@@ -1,0 +1,40 @@
+%% win_uri：原始分辨率窗口设置时序
+%%{init:{"theme":"base","themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","actorBkg":"#FFF7D6","actorBorder":"#D97706","signalColor":"#334155","signalTextColor":"#172033","noteBkgColor":"#DBEAFE","noteBorderColor":"#2563EB"}}}%%
+sequenceDiagram
+  box rgba(250,204,21,0.18) 个人设备端
+    actor User as 用户
+    participant JS as 前端 JavaScript
+  end
+  box rgba(34,197,94,0.14) ESP32-S3 设备端
+    participant HTTP as HTTP Server
+    participant Handler as win_handler()
+    participant Sensor as sensor_t
+    participant OV as OV2640 窗口与缩放模块
+  end
+  Note over HTTP,Handler: 已注册 GET /resolution
+  User->>JS: 提交窗口、输出、缩放参数
+  JS->>HTTP: GET /resolution?sx=…&sy=…&...
+  Note over JS,HTTP: 无线 Wi-Fi 请求
+  HTTP->>Handler: win_handler(req)
+  alt parse_get() 失败
+    Handler-->>HTTP: ESP_FAIL
+    HTTP-->>JS: 错误
+  else 查询字符串有效
+    loop 数值参数
+      Handler->>Handler: parse_get_var(key, 默认值 0)
+    end
+    Handler->>Handler: scale/binning 仅在值为 1 时为 true
+    Handler->>Sensor: set_res_raw(start, end, offset, total, output, scale, binning)
+    Sensor->>OV: 更新传感器读出窗口与输出尺寸
+    OV-->>Sensor: 设置结果
+    Sensor-->>Handler: res
+    alt res 非 0
+      Handler->>HTTP: HTTP 500
+      HTTP-->>JS: 设置失败
+    else res 为 0
+      Handler->>HTTP: CORS + HTTP 200
+      Note over Handler,JS: 无线 Wi-Fi 返回
+      HTTP-->>JS: 空响应
+    end
+  end
+

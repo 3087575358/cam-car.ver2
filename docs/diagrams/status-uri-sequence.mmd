@@ -1,0 +1,61 @@
+%% status_uri：从注册到浏览器取得相机状态的时序
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Microsoft YaHei, Noto Sans SC, sans-serif",
+    "fontSize": "20px",
+    "actorBkg": "#FFF7D6",
+    "actorBorder": "#D97706",
+    "actorTextColor": "#3F2A00",
+    "signalColor": "#334155",
+    "signalTextColor": "#172033",
+    "noteBkgColor": "#DBEAFE",
+    "noteBorderColor": "#2563EB",
+    "noteTextColor": "#172554"
+  }
+}}%%
+sequenceDiagram
+  box rgba(34,197,94,0.14) ESP32-S3 设备端
+    participant Start as startCameraServer()
+    participant HTTP as ESP32 HTTP Server
+    participant Handler as status_handler()
+    participant Sensor as sensor_t / OV2640
+  end
+  box rgba(250,204,21,0.18) 个人设备端
+    actor User as 用户
+    participant JS as 前端 JavaScript
+  end
+
+  Start->>HTTP: httpd_start(camera_httpd, config)
+  alt 启动成功
+    Start->>HTTP: 注册 GET /status → status_handler
+  else 启动失败
+    Note over Start,HTTP: /status 不可访问
+  end
+
+  User->>JS: 打开控制页面
+  JS->>HTTP: GET /status
+  Note over JS,HTTP: 无线 Wi-Fi 请求
+  HTTP->>Handler: status_handler(req)
+  Handler->>Sensor: esp_camera_sensor_get()
+
+  alt OV5640 或 OV3660
+    loop 各专用寄存器区间
+      Handler->>Sensor: get_reg(reg, mask)
+      Sensor-->>Handler: 寄存器值
+    end
+  else OV2640
+    Handler->>Sensor: get_reg(d3 / 111 / 132)
+    Sensor-->>Handler: 三个寄存器值
+  else 其他传感器
+    Note over Handler,Sensor: 不读取型号专用寄存器
+  end
+
+  Handler->>Sensor: 读取 xclk 与 status 字段
+  Sensor-->>Handler: 当前相机配置
+  Handler->>Handler: 拼装 JSON + LED 状态
+  Handler->>HTTP: application/json + CORS
+  HTTP-->>JS: HTTP 200 + json_response
+  Note over HTTP,JS: 无线 Wi-Fi 返回
+  JS-->>User: 用 JSON 同步页面控件
+

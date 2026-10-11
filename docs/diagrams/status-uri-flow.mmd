@@ -1,0 +1,66 @@
+%% status_uri：URI 注册与相机状态查询流程
+%%{init: {
+  "theme": "base",
+  "flowchart": { "curve": "linear", "nodeSpacing": 28, "rankSpacing": 34 },
+  "themeVariables": {
+    "fontFamily": "Microsoft YaHei, Noto Sans SC, sans-serif",
+    "fontSize": "20px",
+    "lineColor": "#334155",
+    "primaryTextColor": "#172033"
+  }
+}}%%
+flowchart LR
+  subgraph BOOT["ESP32-S3 · 启动与注册"]
+    direction TB
+    B0(["startCameraServer()"])
+    B1{"httpd_start()\n成功？"}
+    B2["注册 status_uri\n/status · GET · status_handler"]
+    BF(["未注册 /status"])
+    B0 --> B1
+    B1 -- "是" --> B2
+    B1 -- "否" --> BF
+  end
+
+  subgraph PHONE["个人设备端"]
+    U["网页请求当前相机状态"]
+    VIEW(["JavaScript 读取 JSON\n同步界面控件"])
+    U ~~~ VIEW
+  end
+
+  subgraph ESP["ESP32-S3 · status_handler"]
+    direction TB
+    H["取得 sensor_t\n初始化 JSON 缓冲区"]
+    PID{"传感器 PID"}
+    R56["读取 OV5640 / OV3660\n专用寄存器组"]
+    R26["读取 OV2640\n寄存器 d3 / 111 / 132"]
+    RO["其他型号\n跳过专用寄存器"]
+    COMMON["写入通用状态\nxclk / pixformat / framesize\n画质 / 曝光 / 增益等"]
+    LED{"定义了 LED_GPIO_NUM？"}
+    LD["写入当前 led_duty"]
+    LN["写入 led_intensity = -1"]
+    JSON["闭合 JSON\n类型 application/json\n添加 CORS: *"]
+
+    H --> PID
+    PID -- "OV5640 / OV3660" --> R56 --> COMMON
+    PID -- "OV2640" --> R26 --> COMMON
+    PID -- "其他" --> RO --> COMMON
+    COMMON --> LED
+    LED -- "是" --> LD --> JSON
+    LED -- "否" --> LN --> JSON
+  end
+
+  B2 -. "路由准备完成" .-> U
+  U == "Wi-Fi · GET /status" ==> H
+  JSON == "HTTP 200 · JSON" ==> VIEW
+
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class U,VIEW device;
+  class B0,B1,B2,H,PID,R56,R26,RO,COMMON,LED,LD,LN,JSON esp;
+  class BF error;
+
+  style PHONE fill:#FEF3C799,stroke:#D97706,stroke-width:2px,color:#7C2D12
+  style BOOT fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+  style ESP fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+

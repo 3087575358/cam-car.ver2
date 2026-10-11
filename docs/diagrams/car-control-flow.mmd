@@ -1,0 +1,63 @@
+%% 完整车辆状态通过单一 /car-control URI 原子更新
+%%{init:{"theme":"base","flowchart":{"curve":"linear","nodeSpacing":30,"rankSpacing":36},"themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","lineColor":"#334155","primaryTextColor":"#172033"}}}%%
+flowchart LR
+  subgraph CLIENT["个人设备端 · src-camcar JavaScript"]
+    direction TB
+    INPUT["WASD、页面按钮、J/K 或速度滑块"]
+    SOURCE["输入源集合<br/>避免键盘与鼠标互相误释放"]
+    STATE["currentCarState()<br/>drive + steer + speed"]
+    SEND["sendCarState()<br/>加入 session、seq、emergency"]
+    HEART["活动期间每 20 ms 发送完整状态"]
+    SAFE["松开、失焦或页面隐藏<br/>发送 drive=stop"]
+    ESTOP["Space / 急停按钮<br/>发送 emergency=1"]
+
+    INPUT --> SOURCE --> STATE --> SEND
+    HEART --> STATE
+    SAFE --> SEND
+    ESTOP --> SEND
+  end
+
+  subgraph WIFI["无线 Wi-Fi"]
+    REQUEST["GET /car-control?<br/>drive=forward&steer=left&speed=42<br/>&session=…&seq=…&emergency=0"]
+  end
+
+  subgraph ESP["ESP32-S3 · app_httpd.cpp"]
+    direction TB
+    HANDLER["car_handler(req)"]
+    PARSE{"全部参数存在且合法？"}
+    ORDER{"新 session<br/>或 seq 更新？"}
+    UPDATE["在临界区一次更新<br/>方向、转向、速度和 lastRx"]
+    OUTPUT["apply_car_output()<br/>TB6612FNG 模块 + 转向舵机"]
+    DRIVE["AIN1 / AIN2：方向<br/>PWMA：20 kHz PWM"]
+    STEER["舵机：50 Hz PWM"]
+    TIMER["20 ms 安全定时器"]
+    TIMEOUT{"活动状态超过 100 ms<br/>没有有效新包？"}
+    BRAKE["stop_car_output()<br/>电机停止、舵机回中"]
+    OK["HTTP 200 + 当前 seq"]
+    BAD["HTTP 400 参数错误<br/>HTTP 409 过期序号"]
+
+    HANDLER --> PARSE
+    PARSE -- "否" --> BAD
+    PARSE -- "是" --> ORDER
+    ORDER -- "否" --> BAD
+    ORDER -- "是" --> UPDATE --> OUTPUT
+    OUTPUT --> DRIVE --> OK
+    OUTPUT --> STEER --> OK
+    TIMER --> TIMEOUT
+    TIMEOUT -- "是" --> BRAKE --> TIMER
+    TIMEOUT -- "否" --> TIMER
+  end
+
+  SEND ==> REQUEST ==> HANDLER
+
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef wireless fill:#DBEAFE,stroke:#2563EB,color:#172554,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class INPUT,SOURCE,STATE,SEND,HEART,SAFE,ESTOP device;
+  class REQUEST wireless;
+  class HANDLER,PARSE,ORDER,UPDATE,OUTPUT,DRIVE,STEER,TIMER,TIMEOUT,OK esp;
+  class BAD,BRAKE error;
+  style CLIENT fill:#FEF3C766,stroke:#D97706,stroke-width:2px
+  style WIFI fill:#DBEAFE66,stroke:#2563EB,stroke-width:2px
+  style ESP fill:#DCFCE766,stroke:#15803D,stroke-width:2px

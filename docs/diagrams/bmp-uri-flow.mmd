@@ -1,0 +1,33 @@
+%% bmp_uri：注册与 BMP 抓拍流程
+%%{init:{"theme":"base","flowchart":{"curve":"linear","nodeSpacing":26,"rankSpacing":32},"themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","lineColor":"#334155","primaryTextColor":"#172033"}}}%%
+flowchart LR
+  subgraph BOOT["ESP32-S3 · 注册"]
+    B0["startCameraServer()"] --> B1{"httpd_start() 成功？"}
+    B1 -- "是" --> B2["注册 GET /bmp → bmp_handler"]
+    B1 -- "否" --> BF(["/bmp 不可用"])
+  end
+  subgraph PHONE["个人设备端"]
+    U["请求 BMP 抓拍"] ~~~ VIEW(["显示 capture.bmp"])
+  end
+  subgraph ESP["ESP32-S3 · bmp_handler"]
+    H["esp_camera_fb_get()"] --> FB{"取得帧？"}
+    FB -- "否" --> F1(["HTTP 500 + ESP_FAIL"])
+    FB -- "是" --> HEAD["设置 BMP 类型、文件名、CORS、时间戳"]
+    HEAD --> CV["frame2bmp(fb, buf, len)"] --> RET["归还 framebuffer"]
+    RET --> OK{"转换成功？"}
+    OK -- "否" --> F2(["HTTP 500 + ESP_FAIL"])
+    OK -- "是" --> SEND["发送 BMP 缓冲区"] --> FREE["free(buf)\n记录耗时与大小"]
+  end
+  B2 -. "路由就绪" .-> U
+  U == "Wi-Fi · GET /bmp" ==> H
+  FREE == "HTTP BMP" ==> VIEW
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class U,VIEW device;
+  class B0,B1,B2,H,FB,HEAD,CV,RET,OK,SEND,FREE esp;
+  class BF,F1,F2 error;
+  style PHONE fill:#FEF3C799,stroke:#D97706,stroke-width:2px,color:#7C2D12
+  style BOOT fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+  style ESP fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+

@@ -1,0 +1,53 @@
+sequenceDiagram
+    autonumber
+    box rgba(250, 204, 21, 0.18) 个人设备端
+        actor User as 用户
+        participant Browser as 浏览器
+    end
+    participant WiFi as 无线 Wi-Fi
+    box rgba(34, 197, 94, 0.16) ESP32-S3 设备端
+        participant Start as startCameraServer()
+        participant HTTP as ESP32 HTTP Server
+        participant Handler as index_handler()
+        participant Sensor as Camera Sensor
+    end
+
+    Start->>HTTP: httpd_start(camera_httpd, config)
+    alt 启动成功
+        Start->>HTTP: 注册 index_uri（GET / → index_handler）
+    else 启动失败
+        Start-->>Start: 不注册 index_uri
+    end
+
+    User->>Browser: 打开设备首页
+    Browser->>WiFi: GET /
+    WiFi->>HTTP: 转发 HTTP 请求
+    HTTP->>Handler: 路由命中 index_uri
+    Handler->>Handler: 设置 text/html 与 gzip 响应头
+    Handler->>Sensor: esp_camera_sensor_get()
+
+    alt 未找到传感器
+        Sensor-->>Handler: NULL
+        Handler-->>HTTP: HTTP 500
+        HTTP-->>WiFi: 500 Internal Server Error
+        WiFi-->>Browser: 页面加载失败
+    else PID = OV3660
+        Sensor-->>Handler: OV3660_PID
+        Handler-->>HTTP: index_ov3660_html_gz
+        HTTP-->>WiFi: gzip HTML
+        WiFi-->>Browser: gzip HTML
+        Browser-->>User: 解压并显示控制页面
+    else PID = OV5640
+        Sensor-->>Handler: OV5640_PID
+        Handler-->>HTTP: index_ov5640_html_gz
+        HTTP-->>WiFi: gzip HTML
+        WiFi-->>Browser: gzip HTML
+        Browser-->>User: 解压并显示控制页面
+    else 其他 PID（当前为 OV2640）
+        Sensor-->>Handler: 其他 PID
+        Handler-->>HTTP: index_ov2640_html_gz
+        HTTP-->>WiFi: gzip HTML
+        WiFi-->>Browser: gzip HTML
+        Browser-->>User: 解压并显示控制页面
+    end
+

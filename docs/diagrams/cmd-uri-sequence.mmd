@@ -1,0 +1,66 @@
+sequenceDiagram
+    autonumber
+    box rgba(250, 204, 21, 0.18) 个人设备端
+        actor User as 用户
+        participant UI as HTML 控件
+        participant JS as 前端 JavaScript
+    end
+    participant WiFi as 无线 Wi-Fi
+    box rgba(34, 197, 94, 0.16) ESP32-S3 设备端
+        participant Start as startCameraServer()
+        participant HTTP as ESP32 HTTP Server
+        participant Handler as cmd_handler()
+        participant Sensor as sensor_t / OV2640 驱动
+        participant LED as LED 控制
+    end
+
+    Start->>HTTP: httpd_start(camera_httpd, config)
+    alt 启动成功
+        Start->>HTTP: 注册 cmd_uri（GET /control → cmd_handler）
+    else 启动失败
+        Start-->>Start: 不注册 cmd_uri
+    end
+
+    User->>UI: 修改相机参数
+    UI->>JS: 触发控件事件
+    JS->>WiFi: GET /control?var=名称&val=数值
+    WiFi->>HTTP: 转发 HTTP 请求
+    HTTP->>Handler: 路由命中 cmd_uri
+    Handler->>Handler: parse_get(req, &buf)
+
+    alt 查询字符串解析失败
+        Handler-->>HTTP: ESP_FAIL
+        HTTP-->>JS: 请求失败
+    else 缺少 var 或 val
+        Handler->>Handler: free(buf)
+        Handler-->>HTTP: HTTP 404 + ESP_FAIL
+        HTTP-->>WiFi: 404 Not Found
+        WiFi-->>JS: 控制请求失败
+    else 参数完整
+        Handler->>Handler: free(buf), atoi(value)
+        Handler->>Sensor: esp_camera_sensor_get()
+        alt 已识别的相机参数
+            Handler->>Sensor: 调用对应 set_* 函数
+            Sensor-->>Handler: res
+        else led_intensity
+            Handler->>LED: 保存 led_duty
+            opt 正在流式传输
+                Handler->>LED: enable_led(true)
+            end
+            LED-->>Handler: res = 0
+        else 未知命令
+            Handler->>Handler: 记录 Unknown command<br/>res = -1
+        end
+
+        alt res < 0
+            Handler-->>HTTP: HTTP 500
+            HTTP-->>WiFi: 500 Internal Server Error
+            WiFi-->>JS: 控制失败
+        else res ≥ 0
+            Handler->>Handler: 设置 Access-Control-Allow-Origin: *
+            Handler-->>HTTP: 空 HTTP 200 响应
+            HTTP-->>WiFi: 200 OK
+            WiFi-->>JS: 控制成功
+            JS-->>UI: 保持新参数状态
+        end
+    end

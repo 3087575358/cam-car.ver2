@@ -1,0 +1,92 @@
+%%{init: {
+  "theme": "base",
+  "themeVariables": 
+  {
+    "background": "#F8FAFC",
+    "fontFamily": "Inter, Noto Sans SC, Microsoft YaHei, sans-serif",
+    "fontSize": "50px",
+    "primaryTextColor": "#172033",
+    "actorBkg": "#FFFFFF",
+    "actorBorder": "#64748B",
+    "actorTextColor": "#172033",
+    "actorLineColor": "#94A3B8",
+    "signalColor": "#334155",
+    "signalTextColor": "#172033",
+    "labelBoxBkgColor": "#F1F5F9",
+    "labelBoxBorderColor": "#94A3B8",
+    "labelTextColor": "#172033",
+    "loopTextColor": "#172033",
+    "noteBkgColor": "#EFF6FF",
+    "noteBorderColor": "#60A5FA",
+    "noteTextColor": "#153B5C"
+  },
+  "sequence": 
+  {
+    "actorFontFamily": "Inter, Noto Sans SC, Microsoft YaHei, sans-serif",
+    "actorFontSize": 50,
+    "actorFontWeight": 600,
+    "messageFontFamily": "Inter, Noto Sans SC, Microsoft YaHei, sans-serif",
+    "messageFontSize": 50,
+    "messageFontWeight": 500,
+    "noteFontFamily": "Noto Sans SC, Microsoft YaHei, sans-serif",
+    "noteFontSize": 50,
+    "noteFontWeight": 600,
+    "boxTextMargin": 12,
+    "messageMargin": 42
+  },
+  "themeCSS": "svg{--diagram-line-width:2.5px}.boxText{fill:#24463B!important;font-family:'Noto Sans SC','Microsoft YaHei',sans-serif!important;font-weight:700!important;letter-spacing:.5px}.actor,.actor-line,.messageLine0,.messageLine1,.loopLine,.note{stroke-width:var(--diagram-line-width)!important}"
+}}%%
+%% 字号入口：同步修改 themeVariables.fontSize 与 sequence 中的三个 FontSize；线宽入口：修改 --diagram-line-width。
+sequenceDiagram
+    box rgba(250, 204, 21, 0.18) 个人设备端
+        actor User as 用户
+        participant DOM as HTML 控件
+        participant JS as 前端 JavaScript
+    end
+    box rgba(34, 197, 94, 0.16) ESP32-S3 设备端
+        participant HTTP as ESP32 HTTP Server
+        participant Handler as xclk_handler()
+        participant Sensor as sensor_t / OV2640 驱动
+        participant LEDC as ESP32-S3 LEDC
+        participant OV2640 as OV2640 XCLK 引脚
+    end
+
+    Note over HTTP,Handler: startCameraServer() 已把 /xclk 注册到 xclk_handler
+    User->>DOM: 输入 MHz，点击 Set
+    DOM->>JS: set-xclk.onclick
+    JS->>JS: parseInt(xclk.value)
+    JS->>JS: setXclk(xclk, callback)
+    rect rgba(59, 130, 246, 0.14)
+        Note over JS,HTTP: 无线 Wi-Fi 请求
+        JS->>HTTP: GET /xclk?xclk=数值
+    end
+    HTTP->>Handler: 调用 xclk_handler(req)
+    Handler->>Handler: parse_get(req, &buf)
+    Handler->>Handler: httpd_query_key_value(..., "xclk", ...)
+    alt 缺少 xclk 参数
+        rect rgba(59, 130, 246, 0.14)
+            Note over Handler,JS: 无线 Wi-Fi 返回
+            Handler-->>JS: HTTP 404 / ESP_FAIL
+        end
+        JS-->>User: alert 错误
+    else 找到参数
+        Handler->>Handler: atoi(_xclk)
+        Handler->>Sensor: esp_camera_sensor_get()
+        Handler->>Sensor: s->set_xclk(s, LEDC_TIMER_0, xclk)
+        Sensor->>Sensor: xclk × 1,000,000，更新 xclk_freq_hz
+        Sensor->>LEDC: xclk_timer_conf(timer, Hz)
+        LEDC->>OV2640: GPIO 15 输出新的 XCLK 方波
+        alt 驱动返回非 0
+            rect rgba(59, 130, 246, 0.14)
+                Note over Handler,JS: 无线 Wi-Fi 返回
+                Handler-->>JS: HTTP 500
+            end
+            JS-->>User: alert 错误
+        else 设置成功
+            rect rgba(59, 130, 246, 0.14)
+                Note over Handler,JS: 无线 Wi-Fi 返回
+                Handler-->>JS: HTTP 200
+            end
+            JS-->>User: 页面不提示错误
+        end
+    end

@@ -1,0 +1,70 @@
+%% 单一 URI 下的完整状态心跳、序号校验与失联制动时序
+%%{init:{"theme":"base","themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","actorBkg":"#FFF7D6","actorBorder":"#D97706","actorTextColor":"#3F2A00","signalColor":"#334155","signalTextColor":"#172033","noteBkgColor":"#DBEAFE","noteBorderColor":"#2563EB","noteTextColor":"#172554"}}}%%
+sequenceDiagram
+  box rgba(250,204,21,0.18) 个人设备端
+    actor User as 用户
+    participant Input as 键盘 / 页面控件
+    participant State as 输入源集合 + 车辆状态
+    participant JS as sendCarState()
+  end
+  box rgba(59,130,246,0.16) 无线链路
+    participant HTTP as ESP32 HTTP Server
+  end
+  box rgba(34,197,94,0.14) ESP32-S3
+    participant Handler as car_handler()
+    participant Car as 共享车辆状态
+    participant Output as TB6612FNG 模块 + 转向舵机
+    participant Safe as 20 ms 安全定时器
+  end
+
+  Note over State,JS: 页面加载时生成 16 位 session，seq 从 1 递增
+  User->>Input: 按住 W + A
+  Input->>State: 加入 forward 与 left 输入源
+  State->>State: drive=forward<br/>steer=left<br/>speed=42
+
+  loop 活动期间每 20 ms
+    State->>JS: currentCarState()
+    JS->>JS: seq = seq + 1
+    JS->>HTTP: GET /car-control<br/>完整状态 + session + seq
+    HTTP->>Handler: car_handler(req)
+    Handler->>Handler: 校验枚举、范围、session 和 seq
+    alt 新 session 或更新的 seq
+      Handler->>Car: 临界区内一次更新全部字段和 lastRx
+      Car->>Output: apply_car_output()<br/>AIN1/AIN2 方向 + PWMA 20 kHz<br/>舵机 50 Hz PWM
+      Handler-->>JS: HTTP 200 + 已接收 seq
+    else 重复或延迟到达的 seq
+      Handler-->>JS: HTTP 409 stale sequence
+    else 参数缺失或越界
+      Handler-->>JS: HTTP 400 invalid car state
+    end
+  end
+
+  alt J/K 或滑块改变速度
+    User->>Input: speed 改为 43
+    Input->>State: 更新本地 speed
+    State->>JS: 立即发送完整状态
+    JS->>HTTP: drive=forward&steer=left&speed=43
+  else 松开最后一个方向输入
+    User->>Input: keyup / pointerup
+    Input->>State: drive=stop，steer=center
+    State->>JS: 立即发送停止快照
+    JS->>HTTP: 完整停止状态
+    HTTP->>Handler: 更新状态
+    Handler->>Output: 电机停止、舵机回中
+  else Space 或急停按钮
+    User->>Input: emergency stop
+    Input->>State: 清空全部输入源
+    State->>JS: emergency=1
+    JS->>HTTP: 完整停止状态 + emergency=1
+    HTTP->>Handler: 强制停止
+    Handler->>Output: 立即制动并回中
+  end
+
+  loop ESP32 每 20 ms 独立检查
+    Safe->>Car: now - lastRx
+    alt 活动状态超过 100 ms 无有效新包
+      Safe->>Output: stop_car_output()
+    else 未超时或已经停止
+      Car-->>Safe: 保持当前状态
+    end
+  end

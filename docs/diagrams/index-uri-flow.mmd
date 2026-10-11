@@ -1,0 +1,66 @@
+%% index_uri：从 URI 注册到首页返回
+%% VS Code 中使用 Mermaid Preview 打开；横向紧凑布局避免导出后字体过小。
+%%{init: {
+  "theme": "base",
+  "flowchart": { "curve": "linear", "nodeSpacing": 28, "rankSpacing": 34 },
+  "themeVariables": {
+    "fontFamily": "Microsoft YaHei, Noto Sans SC, sans-serif",
+    "fontSize": "20px",
+    "lineColor": "#334155",
+    "primaryTextColor": "#172033"
+  }
+}}%%
+flowchart LR
+  subgraph BOOT["ESP32-S3 · 启动与注册"]
+    direction TB
+    B0(["startCameraServer()"])
+    B1["创建 HTTP 服务器配置"]
+    B2{"httpd_start()\n成功？"}
+    B3["注册 index_uri\n/ · GET · index_handler"]
+    BF(["未注册 /"])
+    B0 --> B1 --> B2
+    B2 -- "是" --> B3
+    B2 -- "否" --> BF
+  end
+
+  subgraph PHONE["个人设备端"]
+    U["浏览器访问设备首页"]
+    PAGE(["显示摄像头控制页"])
+    U ~~~ PAGE
+  end
+
+  subgraph ESP["ESP32-S3 · 请求处理"]
+    direction TB
+    H["index_handler(req)"]
+    HDR["设置 text/html\nContent-Encoding: gzip"]
+    S{"取得 sensor_t？"}
+    PID{"摄像头 PID"}
+    P36["返回 OV3660 页面 gzip"]
+    P56["返回 OV5640 页面 gzip"]
+    P26["返回 OV2640 页面 gzip"]
+    E500(["记录错误并返回 HTTP 500"])
+    H --> HDR --> S
+    S -- "否" --> E500
+    S -- "是" --> PID
+    PID -- "OV3660" --> P36
+    PID -- "OV5640" --> P56
+    PID -- "其他 / OV2640" --> P26
+  end
+
+  B3 -. "路由准备完成" .-> U
+  U == "Wi-Fi · GET /" ==> H
+  P36 == "HTTP 200 · gzip HTML" ==> PAGE
+  P56 == "HTTP 200 · gzip HTML" ==> PAGE
+  P26 == "HTTP 200 · gzip HTML" ==> PAGE
+
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class U,PAGE device;
+  class B0,B1,B2,B3,H,HDR,S,PID,P36,P56,P26 esp;
+  class BF,E500 error;
+
+  style PHONE fill:#FEF3C799,stroke:#D97706,stroke-width:2px,color:#7C2D12
+  style BOOT fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+  style ESP fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+

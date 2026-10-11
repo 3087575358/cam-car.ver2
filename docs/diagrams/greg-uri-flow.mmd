@@ -1,0 +1,35 @@
+%% greg_uri：注册与传感器寄存器读取流程
+%%{init:{"theme":"base","flowchart":{"curve":"linear","nodeSpacing":26,"rankSpacing":32},"themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","lineColor":"#334155","primaryTextColor":"#172033"}}}%%
+flowchart LR
+  subgraph BOOT["ESP32-S3 · 注册"]
+    B0(["startCameraServer()"] ) --> B1{"httpd_start() 成功？"}
+    B1 -- "是" --> B2["注册 GET /greg → greg_handler"]
+    B1 -- "否" --> BF(["/greg 不可用"])
+  end
+  subgraph PHONE["个人设备端"]
+    U["提交 reg / mask"] ~~~ VIEW(["显示十进制寄存器值"])
+  end
+  subgraph ESP["ESP32-S3 · greg_handler"]
+    H{"parse_get() 成功？"}
+    H -- "否" --> F0(["ESP_FAIL"])
+    H -- "是" --> Q{"reg 与 mask 都存在？"}
+    Q -- "否" --> F4(["HTTP 404 + ESP_FAIL"])
+    Q -- "是" --> V["atoi(reg, mask)\n释放查询缓冲区"]
+    V --> S["sensor_t.get_reg(reg, mask)"]
+    S --> R{"返回值小于 0？"}
+    R -- "是" --> F5(["HTTP 500"])
+    R -- "否" --> TXT["itoa(res, 10)\n添加 CORS: *"] --> OK["返回寄存器值文本"]
+  end
+  B2 -. "路由就绪" .-> U
+  U == "Wi-Fi · GET /greg?reg=…&mask=…" ==> H
+  OK == "HTTP 200 · 十进制文本" ==> VIEW
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class U,VIEW device;
+  class B0,B1,B2,H,Q,V,S,R,TXT,OK esp;
+  class BF,F0,F4,F5 error;
+  style PHONE fill:#FEF3C799,stroke:#D97706,stroke-width:2px,color:#7C2D12
+  style BOOT fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+  style ESP fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+

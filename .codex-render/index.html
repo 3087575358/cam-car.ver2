@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      window.acquireVsCodeApi = () => ({
+        postMessage(message) {
+          document.documentElement.dataset.renderStatus = message.type;
+          if (message.type === "error") {
+            document.documentElement.dataset.renderError = message.message || "unknown error";
+          }
+        },
+        getState() { return {}; },
+        setState() {}
+      });
+    </script>
+    <script type="module" src="./bundle.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      window.addEventListener("load", async () => {
+        const params = new URLSearchParams(location.search);
+        const file = params.get("file") || "xclk-signal-flow.mmd";
+        const content = await fetch(`../docs/diagrams/${encodeURIComponent(file)}`).then(r => r.text());
+        window.postMessage({
+          type: "update",
+          content,
+          currentTheme: "base",
+          isFileChange: true,
+          validateOnly: false,
+          maxZoom: 5,
+          maxCharLength: 90000,
+          maxEdge: 1000
+        }, "*");
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,39 @@
+%% greg_uri：传感器寄存器读取时序
+%%{init:{"theme":"base","themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","actorBkg":"#FFF7D6","actorBorder":"#D97706","signalColor":"#334155","signalTextColor":"#172033","noteBkgColor":"#DBEAFE","noteBorderColor":"#2563EB"}}}%%
+sequenceDiagram
+  box rgba(250,204,21,0.18) 个人设备端
+    actor User as 用户
+    participant JS as 前端 JavaScript
+  end
+  box rgba(34,197,94,0.14) ESP32-S3 设备端
+    participant HTTP as HTTP Server
+    participant Handler as greg_handler()
+    participant Sensor as sensor_t
+    participant OV as OV2640 寄存器
+  end
+  Note over HTTP,Handler: 已注册 GET /greg
+  User->>JS: 输入寄存器与掩码
+  JS->>HTTP: GET /greg?reg=…&mask=…
+  Note over JS,HTTP: 无线 Wi-Fi 请求
+  HTTP->>Handler: greg_handler(req)
+  Handler->>Handler: parse_get() 并读取参数
+  alt 解析失败或参数缺失
+    Handler-->>HTTP: ESP_FAIL 或 HTTP 404
+    HTTP-->>JS: 错误
+  else 参数完整
+    Handler->>Handler: atoi() 转换参数
+    Handler->>Sensor: get_reg(reg, mask)
+    Sensor->>OV: 读取并应用 mask
+    OV-->>Sensor: 寄存器值
+    Sensor-->>Handler: res
+    alt res 小于 0
+      Handler->>HTTP: HTTP 500
+      HTTP-->>JS: 读取失败
+    else 读取成功
+      Handler->>Handler: itoa(res, 10)
+      Handler->>HTTP: CORS + 数值文本
+      Note over Handler,JS: 无线 Wi-Fi 返回
+      HTTP-->>JS: HTTP 200 + 十进制值
+    end
+  end
+

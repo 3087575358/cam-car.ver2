@@ -1,0 +1,69 @@
+%% capture_uri：从注册到浏览器收到单帧 JPEG 的时序
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Microsoft YaHei, Noto Sans SC, sans-serif",
+    "fontSize": "20px",
+    "actorBkg": "#FFF7D6",
+    "actorBorder": "#D97706",
+    "actorTextColor": "#3F2A00",
+    "signalColor": "#334155",
+    "signalTextColor": "#172033",
+    "noteBkgColor": "#DBEAFE",
+    "noteBorderColor": "#2563EB",
+    "noteTextColor": "#172554"
+  }
+}}%%
+sequenceDiagram
+  box rgba(250,204,21,0.18) 个人设备端
+    actor User as 用户
+    participant JS as 前端 JavaScript
+    participant View as 图片元素
+  end
+  box rgba(34,197,94,0.14) ESP32-S3 设备端
+    participant HTTP as ESP32 HTTP Server
+    participant Handler as capture_handler()
+    participant LED as 补光灯
+    participant Camera as esp32-camera
+    participant Encoder as JPEG 编码器
+  end
+
+  Note over HTTP,Handler: startCameraServer() 已注册 GET /capture
+  User->>JS: 点击抓拍
+  JS->>HTTP: GET /capture
+  Note over JS,HTTP: 无线 Wi-Fi 请求
+  HTTP->>Handler: capture_handler(req)
+
+  opt 定义了 LED_GPIO_NUM
+    Handler->>LED: enable_led(true)
+    Handler->>Handler: vTaskDelay(150 ms)
+  end
+  Handler->>Camera: esp_camera_fb_get()
+  Camera-->>Handler: framebuffer 或 NULL
+  opt 使用了补光灯
+    Handler->>LED: enable_led(false)
+  end
+
+  alt 抓帧失败
+    Handler->>HTTP: HTTP 500
+    HTTP-->>JS: ESP_FAIL
+    JS-->>User: 抓拍失败
+  else 抓帧成功
+    Handler->>HTTP: 设置 image/jpeg、文件名、CORS、时间戳
+    alt framebuffer 已是 JPEG
+      Handler->>HTTP: httpd_resp_send(fb->buf, fb->len)
+    else framebuffer 不是 JPEG
+      Handler->>Encoder: frame2jpg_cb(fb, 80, ...)
+      loop JPEG 编码数据块
+        Encoder->>HTTP: jpg_encode_stream() 分块发送
+      end
+      Handler->>HTTP: 空数据块结束响应
+    end
+    Handler->>Camera: esp_camera_fb_return(fb)
+    Handler->>Handler: 记录 JPEG 大小与耗时
+    HTTP-->>JS: HTTP JPEG 响应
+    Note over HTTP,JS: 无线 Wi-Fi 返回
+    JS->>View: 更新图片地址 / 内容
+    View-->>User: 显示 capture.jpg
+  end
+

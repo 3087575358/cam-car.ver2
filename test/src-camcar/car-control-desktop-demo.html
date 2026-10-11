@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Trick3 桌面控制台</title>
+    <link rel="stylesheet" href="car-control-desktop-demo.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <div>
+          <div class="brand">TRICK3 / DRIVER</div>
+          <div class="sub">ESP32-S3 ACKERMANN CONTROL</div>
+        </div>
+        <div class="head-right">
+          <div class="web-status" title="Web 服务连接状态">
+            <i id="web-state-dot" class="state-dot checking"></i
+            ><span id="web-domain">trick3.local</span><span>·</span
+            ><span id="web-ip">192.168.4.1</span><span>·</span
+            ><strong id="web-state">CHECKING</strong>
+          </div>
+          <button
+            id="nav-toggle"
+            class="gear"
+            type="button"
+            aria-controls="camera-menu"
+            aria-expanded="false"
+            title="相机设置"
+          >
+            ⚙
+          </button>
+        </div>
+      </header>
+      <section class="workspace">
+        <div class="video">
+          <div class="road"></div>
+          <div class="hud">
+            <span class="tag">CAM 01 · VGA</span><span class="tag">18 ms</span>
+          </div>
+          <div class="crosshair"></div>
+        </div>
+        <section class="control-dock">
+          <section class="card keyboard-card">
+            <div>
+              <h2>键盘 / 鼠标控制</h2>
+              <div class="keys">
+                <button class="key w" type="button" data-drive="forward">
+                  W</button
+                ><button class="key a" type="button" data-drive="left">A</button
+                ><button class="key s" type="button" data-drive="backward">
+                  S</button
+                ><button class="key d" type="button" data-drive="right">
+                  D
+                </button>
+              </div>
+            </div>
+            <div class="hint">
+              键盘或鼠标按住<br />松开立即停车<br />心跳 20 ms
+            </div>
+          </section>
+          <section class="card output-stop-card">
+            <div>
+              <h2>车辆输出</h2>
+              <div class="metrics">
+                <div class="metric">
+                  <b id="throttle-output">42%</b><span>THROTTLE</span>
+                </div>
+                <div class="metric">
+                  <b id="steering-output">0°</b><span>STEERING</span>
+                </div>
+              </div>
+            </div>
+            <div class="stop-wrap">
+              <h2>安全控制 · SPACE</h2>
+              <button id="emergency-stop" class="stop" type="button">
+                EMERGENCY STOP
+              </button>
+            </div>
+          </section>
+          <section class="card view-control-card">
+            <div>
+              <h2>画面方向</h2>
+              <div class="flip-buttons">
+                <button
+                  class="flip-button"
+                  type="button"
+                  data-camera-toggle="hmirror"
+                >
+                  ↔ 左右翻转</button
+                ><button
+                  class="flip-button"
+                  type="button"
+                  data-camera-toggle="vflip"
+                >
+                  ↕ 上下翻转
+                </button>
+              </div>
+            </div>
+            <div class="speed-control">
+              <button
+                class="speed-button down"
+                type="button"
+                data-speed-step="-1"
+              >
+                J<small>降低</small></button
+              ><input
+                id="speed-range"
+                type="range"
+                min="0"
+                max="100"
+                value="42"
+                orient="vertical"
+                aria-label="速度占空比"
+              /><button
+                class="speed-button up"
+                type="button"
+                data-speed-step="1"
+              >
+                K<small>提高</small></button
+              ><span class="speed-readout"
+                ><b id="speed-value">42%</b><span>PWM</span></span
+              >
+            </div>
+          </section>
+        </section>
+
+        <aside id="camera-menu" class="settings" aria-hidden="true">
+          <div class="menu-head">
+            <div>
+              <h2>OV2640 设置</h2>
+              <p>全部传感器可调项目</p>
+            </div>
+            <button id="menu-close" class="menu-close" type="button">×</button>
+          </div>
+          <div class="scrollbox">
+            <details open>
+              <summary>基础图像</summary>
+              <div class="setting-section">
+                <label class="field"
+                  ><span>Resolution</span
+                  ><select id="framesize" data-camera>
+                    <option value="15">UXGA 1600×1200</option>
+                    <option value="14">SXGA 1280×1024</option>
+                    <option value="13">HD 1280×720</option>
+                    <option value="12">XGA 1024×768</option>
+                    <option value="11">SVGA 800×600</option>
+                    <option value="10" selected>VGA 640×480</option>
+                    <option value="9">HVGA 480×320</option>
+                    <option value="8">CIF 400×296</option>
+                    <option value="6">QVGA 320×240</option>
+                    <option value="5">240×240</option>
+                    <option value="4">HQVGA 240×176</option>
+                    <option value="3">QCIF 176×144</option>
+                    <option value="2">128×128</option>
+                    <option value="1">QQVGA 160×120</option>
+                    <option value="0">96×96</option>
+                  </select></label
+                >
+                <label class="field"
+                  ><span>Quality <output data-for="quality">10</output></span
+                  ><input
+                    id="quality"
+                    data-camera
+                    type="range"
+                    min="4"
+                    max="63"
+                    value="10"
+                /></label>
+                <label class="field"
+                  ><span
+                    >Brightness <output data-for="brightness">0</output></span
+                  ><input
+                    id="brightness"
+                    data-camera
+                    type="range"
+                    min="-2"
+                    max="2"
+                    value="0"
+                /></label>
+                <label class="field"
+                  ><span>Contrast <output data-for="contrast">0</output></span
+                  ><input
+                    id="contrast"
+                    data-camera
+                    type="range"
+                    min="-2"
+                    max="2"
+                    value="0"
+                /></label>
+                <label class="field"
+                  ><span
+                    >Saturation <output data-for="saturation">0</output></span
+                  ><input
+                    id="saturation"
+                    data-camera
+                    type="range"
+                    min="-2"
+                    max="2"
+                    value="0"
+                /></label>
+                <label class="field"
+                  ><span>Special Effect</span
+                  ><select id="special_effect" data-camera>
+                    <option value="0">No Effect</option>
+                    <option value="1">Negative</option>
+                    <option value="2">Grayscale</option>
+                    <option value="3">Red Tint</option>
+                    <option value="4">Green Tint</option>
+                    <option value="5">Blue Tint</option>
+                    <option value="6">Sepia</option>
+                  </select></label
+                >
+              </div>
+            </details>
+            <details>
+              <summary>白平衡与曝光</summary>
+              <div class="setting-section">
+                <label class="field"
+                  ><span>AWB</span
+                  ><input id="awb" data-camera type="checkbox" checked /></label
+                ><label class="field"
+                  ><span>AWB Gain</span
+                  ><input id="awb_gain" data-camera type="checkbox" checked
+                /></label>
+                <label class="field"
+                  ><span>WB Mode</span
+                  ><select id="wb_mode" data-camera>
+                    <option value="0">Auto</option>
+                    <option value="1">Sunny</option>
+                    <option value="2">Cloudy</option>
+                    <option value="3">Office</option>
+                    <option value="4">Home</option>
+                  </select></label
+                >
+                <label class="field"
+                  ><span>AEC Sensor</span
+                  ><input id="aec" data-camera type="checkbox" checked /></label
+                ><label class="field"
+                  ><span>AEC DSP</span
+                  ><input id="aec2" data-camera type="checkbox" checked
+                /></label>
+                <label class="field"
+                  ><span>AE Level <output data-for="ae_level">0</output></span
+                  ><input
+                    id="ae_level"
+                    data-camera
+                    type="range"
+                    min="-2"
+                    max="2"
+                    value="0" /></label
+                ><label class="field"
+                  ><span
+                    >Exposure <output data-for="aec_value">204</output></span
+                  ><input
+                    id="aec_value"
+                    data-camera
+                    type="range"
+                    min="0"
+                    max="1200"
+                    value="204"
+                /></label>
+                <label class="field"
+                  ><span>AGC</span
+                  ><input id="agc" data-camera type="checkbox" checked /></label
+                ><label class="field"
+                  ><span>Gain <output data-for="agc_gain">5</output></span
+                  ><input
+                    id="agc_gain"
+                    data-camera
+                    type="range"
+                    min="0"
+                    max="30"
+                    value="5" /></label
+                ><label class="field"
+                  ><span
+                    >Gain Ceiling
+                    <output data-for="gainceiling">0</output></span
+                  ><input
+                    id="gainceiling"
+                    data-camera
+                    type="range"
+                    min="0"
+                    max="6"
+                    value="0"
+                /></label>
+              </div>
+            </details>
+            <details>
+              <summary>传感器处理</summary>
+              <div class="setting-section switch-grid">
+                <label class="field"
+                  ><span>BPC</span
+                  ><input id="bpc" data-camera type="checkbox" /></label
+                ><label class="field"
+                  ><span>WPC</span
+                  ><input id="wpc" data-camera type="checkbox" checked /></label
+                ><label class="field"
+                  ><span>Raw GMA</span
+                  ><input
+                    id="raw_gma"
+                    data-camera
+                    type="checkbox"
+                    checked /></label
+                ><label class="field"
+                  ><span>Lens Correction</span
+                  ><input
+                    id="lenc"
+                    data-camera
+                    type="checkbox"
+                    checked /></label
+                ><label class="field"
+                  ><span>H-Mirror</span
+                  ><input
+                    id="hmirror"
+                    data-camera
+                    type="checkbox"
+                    checked /></label
+                ><label class="field"
+                  ><span>V-Flip</span
+                  ><input
+                    id="vflip"
+                    data-camera
+                    type="checkbox"
+                    checked /></label
+                ><label class="field"
+                  ><span>DCW</span
+                  ><input id="dcw" data-camera type="checkbox" checked /></label
+                ><label class="field"
+                  ><span>Color Bar</span
+                  ><input id="colorbar" data-camera type="checkbox" /></label
+                ><label class="field full"
+                  ><span>LED <output data-for="led_intensity">0</output></span
+                  ><input
+                    id="led_intensity"
+                    data-camera
+                    type="range"
+                    min="0"
+                    max="255"
+                    value="0"
+                /></label>
+              </div>
+            </details>
+            <details>
+              <summary>时钟与寄存器</summary>
+              <div class="setting-section">
+                <div class="field">
+                  <span>XCLK MHz</span>
+                  <div class="inline">
+                    <input
+                      id="xclk"
+                      type="number"
+                      min="1"
+                      max="40"
+                      value="20"
+                    /><button id="set-xclk" class="inline-button" type="button">
+                      SET
+                    </button>
+                  </div>
+                </div>
+                <div class="field">
+                  <span>Set Reg</span>
+                  <div class="inline">
+                    <input id="reg-addr" value="0x111" /><input
+                      id="reg-mask"
+                      value="0x80"
+                    /><input id="reg-value" value="0x80" /><button
+                      id="set-reg"
+                      class="inline-button"
+                      type="button"
+                    >
+                      SET
+                    </button>
+                  </div>
+                </div>
+                <div class="field">
+                  <span>Get Reg</span>
+                  <div class="inline">
+                    <input id="get-reg-addr" value="0x111" /><input
+                      id="get-reg-mask"
+                      value="0x80"
+                    /><button id="get-reg" class="inline-button" type="button">
+                      GET
+                    </button>
+                  </div>
+                </div>
+                <div class="field">
+                  <span>Register Value</span
+                  ><output id="get-reg-value">—</output>
+                </div>
+                <label class="field"
+                  ><span>CLK 2X</span
+                  ><input
+                    id="2640pll1"
+                    type="checkbox"
+                    data-register="0x111"
+                    data-offset="7"
+                    data-mask="0x01" /></label
+                ><label class="field"
+                  ><span>CLK DIV</span
+                  ><input
+                    id="2640pll3"
+                    type="number"
+                    min="0"
+                    max="63"
+                    value="1"
+                    data-register="0x111"
+                    data-offset="0"
+                    data-mask="0x3f" /></label
+                ><label class="field"
+                  ><span>Auto PCLK</span
+                  ><input
+                    id="2640pll5"
+                    type="checkbox"
+                    data-register="0xd3"
+                    data-offset="7"
+                    data-mask="0x01" /></label
+                ><label class="field"
+                  ><span>PCLK DIV</span
+                  ><input
+                    id="2640pll4"
+                    type="number"
+                    min="0"
+                    max="127"
+                    value="4"
+                    data-register="0xd3"
+                    data-offset="0"
+                    data-mask="0x7f"
+                /></label>
+              </div>
+            </details>
+            <details>
+              <summary>Sensor Window</summary>
+              <div class="setting-section">
+                <label class="field"
+                  ><span>Sensor Resolution</span
+                  ><select id="sensor-resolution">
+                    <option value="2">CIF 400×296</option>
+                    <option value="1">SVGA 800×600</option>
+                    <option value="0" selected>UXGA 1600×1200</option>
+                  </select></label
+                >
+                <div class="field">
+                  <span>Offset X / Y</span>
+                  <div class="inline">
+                    <input id="offset-x" type="number" value="400" /><input
+                      id="offset-y"
+                      type="number"
+                      value="300"
+                    />
+                  </div>
+                </div>
+                <div class="field">
+                  <span>Window X / Y</span>
+                  <div class="inline">
+                    <input id="total-x" type="number" value="800" /><input
+                      id="total-y"
+                      type="number"
+                      value="600"
+                    />
+                  </div>
+                </div>
+                <div class="field">
+                  <span>Output X / Y</span>
+                  <div class="inline">
+                    <input id="output-x" type="number" value="320" /><input
+                      id="output-y"
+                      type="number"
+                      value="240"
+                    />
+                  </div>
+                </div>
+                <button id="set-resolution" class="menu-action" type="button">
+                  SET RESOLUTION
+                </button>
+              </div>
+            </details>
+          </div>
+        </aside>
+      </section>
+    </main>
+    <script src="car-control-desktop-demo.js" defer></script>
+  </body>
+</html>

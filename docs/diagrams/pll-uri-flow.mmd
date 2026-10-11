@@ -1,0 +1,34 @@
+%% pll_uri：注册与传感器 PLL 设置流程
+%%{init:{"theme":"base","flowchart":{"curve":"linear","nodeSpacing":26,"rankSpacing":32},"themeVariables":{"fontFamily":"Microsoft YaHei, Noto Sans SC, sans-serif","fontSize":"20px","lineColor":"#334155","primaryTextColor":"#172033"}}}%%
+flowchart LR
+  subgraph BOOT["ESP32-S3 · 注册"]
+    B0(["startCameraServer()"] ) --> B1{"httpd_start() 成功？"}
+    B1 -- "是" --> B2["注册 GET /pll → pll_handler"]
+    B1 -- "否" --> BF(["/pll 不可用"])
+  end
+  subgraph PHONE["个人设备端"]
+    U["提交 8 个 PLL 参数"] ~~~ VIEW(["设置完成或提示错误"])
+  end
+  subgraph ESP["ESP32-S3 · pll_handler"]
+    H{"parse_get() 成功？"}
+    H -- "否" --> F0(["ESP_FAIL"])
+    H -- "是" --> P["parse_get_var() 读取\nbypass / mul / sys / root\npre / seld5 / pclken / pclk\n缺失参数默认为 0"]
+    P --> FREE["释放查询缓冲区\n记录参数"]
+    FREE --> S["sensor_t.set_pll(8 个参数)"]
+    S --> R{"驱动返回 0？"}
+    R -- "否" --> F5(["HTTP 500"])
+    R -- "是" --> OK["添加 CORS: *\n返回空 HTTP 200"]
+  end
+  B2 -. "路由就绪" .-> U
+  U == "Wi-Fi · GET /pll?参数…" ==> H
+  OK == "HTTP 200" ==> VIEW
+  classDef device fill:#FEF3C7,stroke:#D97706,color:#3F2A00,stroke-width:2px;
+  classDef esp fill:#DCFCE7,stroke:#15803D,color:#143D22,stroke-width:2px;
+  classDef error fill:#FEE2E2,stroke:#DC2626,color:#5F1515,stroke-width:2px;
+  class U,VIEW device;
+  class B0,B1,B2,H,P,FREE,S,R,OK esp;
+  class BF,F0,F5 error;
+  style PHONE fill:#FEF3C799,stroke:#D97706,stroke-width:2px,color:#7C2D12
+  style BOOT fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+  style ESP fill:#DCFCE799,stroke:#15803D,stroke-width:2px,color:#14532D
+
