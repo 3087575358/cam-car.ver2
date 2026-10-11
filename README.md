@@ -6,7 +6,8 @@
 
 > 当前状态：第一阶段的软件结构、控制页面和载板设计已经完成；实车供电、堵转电流、舵机极限和无线环境仍待装车验证。
 
-![桌面端控制页面](samples/UI_design.png)
+<img width="1545" height="896" alt="UI_design" src="https://github.com/user-attachments/assets/0b6687fc-f22a-4f82-9773-264428dc54b5" />
+
 
 ## 第一阶段完成内容
 
@@ -27,7 +28,8 @@
 
 `currentCarState()` 将所有输入整理为 `drive`、`steer` 和 `speed`，活动期间每 20 ms 发送一次完整快照。
 
-![网页输入、无线请求和设备输出流程](samples/car-control-flow.png)
+<img width="1482" height="1876" alt="car-control-flow" src="https://github.com/user-attachments/assets/cb671562-244c-4d79-957b-2ca83ea9618e" />
+
 
 ### 2. 对无线延迟做基本防护
 
@@ -68,15 +70,15 @@ ESP32 只接受新会话或更新的序号。参数错误返回 HTTP 400，旧�
 
 电机 PWM 为 20 kHz、8 位；舵机 PWM 为 50 Hz。TB6612FNG 模块的 `STBY` 在硬件上固定拉高，急停由停车命令和通信超时完成。
 
-![PCB 布局](samples/PCB_LAYOUT.png)
+<img width="934" height="636" alt="PCB_LAYOUT" src="https://github.com/user-attachments/assets/0cb553a8-c1a4-4650-b956-7bb47eadbb69" />
 
-![PCB 3D 装配预览](samples/PCB_3D.png)
+<img width="912" height="779" alt="PCB_3D" src="https://github.com/user-attachments/assets/457c4b3c-866d-4511-ba3c-6613ba1d1547" />
 
 ## 页面反馈
 
 按钮的业务输入与视觉动画分开处理。键盘、鼠标或触屏按下时添加 `.is-pressed`，释放、取消、页面失焦或隐藏时移除；画面翻转一类持续状态使用 `.is-on`，不与瞬时按压动画混用。
 
-![按钮动画与状态逻辑](samples/car-control-animation-logic.png)
+<img width="1482" height="1876" alt="car-control-animation-logic" src="https://github.com/user-attachments/assets/abed1328-5466-44f8-b164-447f71e71a7a" />
 
 ## 硬件结构
 
