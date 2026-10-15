@@ -98,15 +98,13 @@ ESP32 只接受新会话或更新的序号。参数错误返回 HTTP 400，旧�
 
 ## 代码位置
 
-当前相机小车版本以 [`test/src-camcar`]([https://github.com/3087575358/cam-car.ver2/tree/main/test/src-camcar]) 为主要开发目录：
+当前相机小车版本以 [`test/src-camcar`](https://github.com/3087575358/cam-car.ver2/tree/main/test/src-camcar) 为主要开发目录：
 
 - `app_httpd.cpp`：HTTP URI、车辆状态、PWM 输出和失联保护。
 - `car-control-desktop-demo.html`：桌面控制页面结构。
 - `car-control-desktop-demo.css`：布局、响应式样式和按钮动画。
 - `car-control-desktop-demo.js`：输入源、完整状态请求和网络状态。
 - `car-control-mobile-demo.html`：手机端页面原型。
-
-开发过程、历史方案和重要变更记录在 [`car-control-development-notes.md`](../test/src-camcar/car-control-development-notes.md)。
 
 ## 编译与使用
 
