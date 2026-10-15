@@ -106,7 +106,7 @@ ESP32 只接受新会话或更新的序号。参数错误返回 HTTP 400，旧�
 - `car-control-desktop-demo.js`：输入源、完整状态请求和网络状态。
 - `car-control-mobile-demo.html`：手机端页面原型。
 
-简要开发日志记录详见文件 [`car-control-single-uri-review.md`](https://github.com/3087575358/cam-car.ver2/blob/main/test/src-camcar/car-control-single-uri-review.md)
+简要开发日志记录详见文件 [`car-control-development-notes.md`](https://github.com/3087575358/cam-car.ver2/blob/main/test/src-camcar/car-control-development-notes.md)
 
 ## 编译与使用
 
